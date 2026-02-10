@@ -1,7 +1,7 @@
 from shiny import App, ui, render, reactive
 import requests
 import os
-
+import pandas as pd
 API_URL = os.getenv("API_URL", "https://localhost:8000")
 
 def api_request(endpoint, method="GET", data=None, token=None, use_form_data=False):
@@ -80,6 +80,8 @@ app_ui = ui.page_fluid (
         ui.input_select("selected_project", "Select Project:", choices={}),
         ui.p("Total Time (minutes) for Selected Project:"),
         ui.output_text("selected_project_total"),
+        ui.h3("Time Entries for Selected Project:"),
+        ui.output_data_frame("time_entries_table"),
 
 
         #timer controls
@@ -202,6 +204,23 @@ def server(input, output, session):
         except requests.exceptions.HTTPError as e:
             error_message.set("Failed to create project")
 
+    @output
+    @render.data_frame
+    def time_entries_table():
+
+        project_lookup = {p['id']: p['name'] for p in projects.get()}
+        
+        table_data = []
+        for entry in time_entries.get():
+            if entry['project_id'] == int(input.selected_project()):
+                table_data.append({
+                    'Project' : project_lookup.get(entry['project_id'], 'Unknown'),
+                    'Date' : entry['start_time'][:10],
+                    'Duration (min)': entry['duration_minutes'],
+                    'Notes' : entry.get('description', '')
+                })
+        df = pd.DataFrame(table_data)
+        return df
 
     # time entry methods
 
@@ -260,6 +279,7 @@ def server(input, output, session):
        
         return total_time_min
     
+
 
         
 
